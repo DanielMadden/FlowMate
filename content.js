@@ -56,6 +56,36 @@ let cfg = {
 const qsAll = (sel) => Array.from(document.querySelectorAll(sel));
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
+function svgDragDots() {
+  return `
+  <svg width="18" height="18" viewBox="0 0 100 100" fill="#555" aria-hidden="true">
+    <circle cx="20" cy="20" r="10"/><circle cx="60" cy="20" r="10"/>
+    <circle cx="20" cy="60" r="10"/><circle cx="60" cy="60" r="10"/>
+  </svg>`;
+}
+function svgSnap() {
+  return `
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="#555" aria-hidden="true">
+    <path d="M12 2L15 8H9L12 2ZM12 22L9 16H15L12 22ZM2 12L8 15V9L2 12ZM22 12L16 9V15L22 12Z"/>
+  </svg>`;
+}
+function svgTrash() {
+  return `
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="#555" aria-hidden="true">
+    <path d="M3 6H21V8H19V21H5V8H3V6ZM8 11H10V19H8V11ZM14 11H16V19H14V11ZM9 4H15V6H9V4Z"/>
+  </svg>`;
+}
+function iconBtnSVG(svg, title, onclick) {
+  const b = document.createElement("button");
+  b.innerHTML = svg;
+  Object.assign(b.style, {
+    border: "none", background: "none", color: "#555",
+    cursor: "pointer", padding: "0 6px", lineHeight: 0
+  });
+  b.title = title; b.onclick = onclick; return b;
+}
+
+
 // Looper timers
 let tabLoop   = null;
 let toastLoop = null;
@@ -123,13 +153,8 @@ function buildCleanupPanel() {
   // --- Dragging
   let isDragging = false, offsetX = 0, offsetY = 0;
   const dragHandle = document.createElement("div");
-  dragHandle.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 100 100" fill="#555">
-      <circle cx="20" cy="20" r="10"/>
-      <circle cx="60" cy="20" r="10"/>
-      <circle cx="20" cy="60" r="10"/>
-      <circle cx="60" cy="60" r="10"/>
-    </svg>`;
+  dragHandle.innerHTML = svgDragDots();
+
   Object.assign(dragHandle.style, { cursor: "move", paddingTop: "4px", marginRight: "auto" });
   dragHandle.addEventListener("mousedown", (e) => {
     isDragging = true;
@@ -148,14 +173,10 @@ function buildCleanupPanel() {
   document.addEventListener("mouseup", () => { isDragging = false; });
 
   // --- Top bar
-  const resetBtn = iconBtn("↘", "Snap to bottom-right", () => {
-    Object.assign(panel.style, { bottom: "20px", right: "20px", top: "auto", left: "auto" });
-  });
-  const trashBtn = iconBtn("✕", "Remove panel", () => {
-    stopTabLoop();
-    stopToastLoop();
-    panel.remove();
-  });
+  const resetBtn = iconBtnSVG(svgSnap(), "Snap", () => {
+  Object.assign(panel.style, { bottom: "200px", left: "300px", top: "auto", right: "auto" });
+});
+const trashBtn = iconBtnSVG(svgTrash(), "Remove panel", () => { stopAsmLoop(); panel.remove(); });
 
   const topBar = document.createElement("div");
   topBar.style.display = "flex";
@@ -168,16 +189,17 @@ function buildCleanupPanel() {
 
   // --- Buttons
   const killTabsBtn = fullBtn("Close Extra Tabs", "#0070d2", async () => {
-    FM.log("Kill tabs: closing beyond limit", cfg.tabLimit);
-    const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
-    for (const item of tabs) {
-      const button = item.querySelector(".slds-button_icon-x-small");
-      if (button) {
-        button.click();
-        await delay(250);
-      }
+  FM.log("Kill tabs: closing beyond limit", cfg.tabLimit);
+  const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
+  for (let i = cfg.tabLimit; i < tabs.length; i++) {
+    const button = tabs[i]?.querySelector(".slds-button_icon-x-small");
+    if (button) {
+      button.click();
+      await delay(250);
     }
-  });
+  }
+});
+
 
   const tabLoopBtn = toggleBtn(
     () => (tabLoop ? "Stop Tab Auto-Close" : "Start Tab Auto-Close"),
@@ -211,13 +233,17 @@ function buildCleanupPanel() {
     b.textContent = text; b.title = title; b.onclick = onclick; return b;
   }
   function fullBtn(label, bg, onclick) {
-    const b = document.createElement("button");
-    Object.assign(b.style, {
-      margin: "4px 0", width: "100%", padding: "6px",
-      border: "none", borderRadius: "4px", background: bg, color: "#fff", cursor: "pointer"
-    });
-    b.textContent = label; b.onclick = onclick; return b;
-  }
+  const b = document.createElement("button");
+  Object.assign(b.style, {
+    margin: "4px 0", width: "100%", padding: "6px",
+    border: "none", borderRadius: "4px",
+    background: bg, color: "#fff", cursor: "pointer",
+    textAlign: "center",
+    font: "inherit"   // ✅ inherit panel font
+  });
+  b.textContent = label; b.onclick = onclick; return b;
+}
+
   function toggleBtn(labelFn, bgFn, handler) {
     const b = fullBtn("", "#1a7f5a", () => { handler(); sync(); });
     function sync() { b.textContent = labelFn(); b.style.background = bgFn(); }
@@ -232,11 +258,12 @@ function startTabLoop() {
   tabLoop = setInterval(() => {
     const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
     for (let i = cfg.tabLimit; i < tabs.length; i++) {
-      const button = tabs[0]?.querySelector(".slds-button_icon-x-small");
+      const button = tabs[i]?.querySelector(".slds-button_icon-x-small");
       if (button) button.click();
     }
   }, 1000);
 }
+
 function stopTabLoop() {
   FM.log("stopTabLoop()");
   clearInterval(tabLoop);
@@ -284,11 +311,7 @@ function buildASMPanel() {
   // --- Dragging
   let isDragging = false, offsetX = 0, offsetY = 0;
   const dragHandle = document.createElement("div");
-  dragHandle.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 100 100" fill="#555">
-      <circle cx="20" cy="20" r="10"/><circle cx="60" cy="20" r="10"/>
-      <circle cx="20" cy="60" r="10"/><circle cx="60" cy="60" r="10"/>
-    </svg>`;
+  dragHandle.innerHTML =svgDragDots();
   Object.assign(dragHandle.style, { cursor: "move", paddingTop: "4px", marginRight: "auto" });
   dragHandle.addEventListener("mousedown", (e) => {
     isDragging = true;
@@ -305,10 +328,15 @@ function buildASMPanel() {
   document.addEventListener("mouseup", () => { isDragging = false; });
 
   // --- Top bar
-  const resetBtn = iconBtn("↘", "Snap", () => {
-    Object.assign(panel.style, { bottom: "200px", left: "300px", top: "auto", right: "auto" });
-  });
-  const trashBtn = iconBtn("✕", "Remove panel", () => { stopAsmLoop(); panel.remove(); });
+  const resetBtn = iconBtnSVG(svgSnap(), "Snap to bottom-right", () => {
+  Object.assign(panel.style, { bottom: "20px", right: "20px", top: "auto", left: "auto" });
+});
+const trashBtn = iconBtnSVG(svgTrash(), "Remove panel", () => {
+  stopTabLoop();
+  stopToastLoop();
+  panel.remove();
+});
+
 
   const topBar = document.createElement("div");
   Object.assign(topBar.style, { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" });
@@ -331,7 +359,7 @@ function buildASMPanel() {
   row.append(delayInput, volumeInput);
 
   // Assemble
-  panel.append(topBar, nextCallBtn, loopBtn, row);
+  panel.append(topBar, nextCallBtn, loopBtn);
   panel.addEventListener("mouseenter", () => { panel.style.opacity = "1"; stopAsmLoop(); });
   panel.addEventListener("mouseleave", () => (panel.style.opacity = "0.05"));
   document.body.appendChild(panel);
@@ -457,15 +485,17 @@ function buildASMPanel() {
     b.textContent = text; b.title = title; b.onclick = onclick; return b;
   }
   function fullBtn(label, bg, onclick) {
-    const b = document.createElement("button");
-    Object.assign(b.style, {
-      margin: "4px 0", width: "100%", padding: "6px",
-      border: "none", borderRadius: "4px",
-      background: bg, color: "#fff", cursor: "pointer",
-      textAlign: "center", fontSize: cfg.fontSize + "px",
-    });
-    b.textContent = label; b.onclick = onclick; return b;
-  }
+  const b = document.createElement("button");
+  Object.assign(b.style, {
+    margin: "4px 0", width: "100%", padding: "6px",
+    border: "none", borderRadius: "4px", background: bg, color: "#fff",
+    cursor: "pointer",
+    // inherit font from panel (so applySettings works)
+    font: "inherit"
+  });
+  b.textContent = label; b.onclick = onclick; return b;
+}
+
   function mkInputNumber(value, attrs, onChange) {
     const i = document.createElement("input");
     i.type = "number";
@@ -493,18 +523,18 @@ function applySettings(newCfg) {
   cfg = { ...cfg, ...newCfg };
   FM.log("applySettings", cfg);
 
-  // Update panel sizing
   const cleanup = ensure(IDS.CLEANUP);
   if (cleanup) { cleanup.style.fontSize = cfg.fontSize + "px"; cleanup.style.width = cfg.widgetWidth + "px"; }
+
   const asm = ensure(IDS.ASM);
   if (asm) { asm.style.fontSize = cfg.fontSize + "px"; asm.style.width = cfg.widgetWidth + "px"; }
 
-  // Respect toggles
   if (cfg.tabLooper && !tabLoop) startTabLoop();
   if (!cfg.tabLooper && tabLoop) stopTabLoop();
   if (cfg.toastLooper && !toastLoop) startToastLoop();
   if (!cfg.toastLooper && toastLoop) stopToastLoop();
 }
+
 
 // Bootstrap
 chrome.storage.sync.get(null, (stored) => {
@@ -512,7 +542,6 @@ chrome.storage.sync.get(null, (stored) => {
   // If surface init didn’t run a panel for some reason, ensure:
   if (IS_SF) {
     ensure(IDS.CLEANUP) || buildCleanupPanel();
-    ensure(IDS.ASM)     || buildASMPanel();
   } else if (IS_FIVE9) {
     ensure(IDS.ASM)     || buildASMPanel();
   }
