@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: system-ui, sans-serif; width: 320px; padding: 12px; }
+    h3 { margin: 4px 0 12px; }
+    fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 10px 10px 6px; margin-bottom: 10px; }
+    legend { padding: 0 6px; }
+    .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+    .row > label { flex: 1; }
+    .row > input[type="number"] { width: 90px; }
+    .btnbar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+    button { padding: 6px 10px; border: 1px solid #ccc; background: #fafafa; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h3>MVP Helper</h3>
+
+  <fieldset>
+    <legend>Tab/Toast Killer</legend>
+    <div class="row">
+      <label>Enable tab auto-close loop</label>
+      <input id="tabLooper" type="checkbox">
+    </div>
+    <div class="row">
+      <label>Tab limit (keep ≤ N)</label>
+      <input id="tabLimit" type="number" min="0" value="10">
+    </div>
+    <div class="row">
+      <label>Enable toast auto-close loop</label>
+      <input id="toastLooper" type="checkbox">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ASM Next Call</legend>
+    <div class="row">
+      <label>Countdown delay (s)</label>
+      <input id="asmDelay" type="number" min="0" value="3">
+    </div>
+    <div class="row">
+      <label>Beep volume (0–1)</label>
+      <input id="asmVolume" type="number" min="0" max="1" step="0.1" value="0.5">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Widget Style</legend>
+    <div class="row">
+      <label>Font size (px)</label>
+      <input id="fontSize" type="number" min="10" value="14">
+    </div>
+    <div class="row">
+      <label>Widget width (px)</label>
+      <input id="widgetWidth" type="number" min="120" value="160">
+    </div>
+  </fieldset>
+
+  <div class="btnbar">
+    <button id="apply">Apply to Tab</button>
+    <button id="reset">Reset</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

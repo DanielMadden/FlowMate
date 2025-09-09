@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "GhostPanel (MVP)",
+  "version": "0.1.1",
+  "description": "ASM Next Call + Tab/Toast helpers.",
+  "action": { "default_popup": "popup.html" },
+
+  "permissions": ["storage", "tabs", "scripting"],
+
+  "host_permissions": [
+    "https://*.lightning.force.com/*",
+    "https://*.my.salesforce.com/*",
+    "https://app.five9.com/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.lightning.force.com/*",
+        "https://*.my.salesforce.com/*",
+        "https://app.five9.com/*"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle",
+      "world": "MAIN", 
+      "js": ["content.js"]
+    }
+  ]
+}
