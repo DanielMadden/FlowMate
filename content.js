@@ -1,85 +1,109 @@
-// ---- Frame / surface detection ----
-const url = new URL(location.href);
-const host = url.host;
+// ===============================
+// FlowMate content script (clean)
+// ===============================
 
-// Heuristics:
-const isSalesforce =
-  host.endsWith(".lightning.force.com") || host.endsWith(".my.salesforce.com");
+console.log('FlowMate UPDATED')
 
-const isFive9 = host === "app.five9.com" || window.name === "sfdcSoftphone";
+// ---------- Frame / surface detection ----------
+const FM_URL = new URL(location.href);
+const FM_HOST = FM_URL.host;
 
-// Optional: only attach specific widgets per surface
-if (isSalesforce) {
-  // Parent Salesforce console (tabs / toasts live here)
-  tryInitTabToastWidget(); // your Tab/Toast Killer panel
-  tryInitASMWidget(); // if you also want ASM here
-}
+const IS_SF =
+  FM_HOST.endsWith(".lightning.force.com") ||
+  FM_HOST.endsWith(".my.salesforce.com");
 
-if (isFive9) {
-  // Five9 softphone iframe / popup (call state, ASM clicks live here)
-  tryInitASMWidget(); // your ASM Next Call panel
-  // You can skip Tab/Toast here if not needed
-}
+const IS_FIVE9 =
+  FM_HOST === "app.five9.com" || window.name === "sfdcSoftphone";
 
-// ---- Defensive re-attach if SPA navigation swaps frames ----
-const reinitOnDomChange = new MutationObserver(() => {
-  if (isSalesforce) {
-    ensureElement("kill-controls") || tryInitTabToastWidget();
-    ensureElement("asm-controls") || tryInitASMWidget();
-  }
-  if (isFive9) {
-    ensureElement("asm-controls") || tryInitASMWidget();
-  }
-});
-reinitOnDomChange.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
+// ---------- Debug bootstrap ----------
+const FM = {
+  tag: (() => {
+    const frame = window.top === window ? "TOP" : "IFRAME";
+    return `[FlowMate ${frame} @ ${FM_HOST}${FM_URL.pathname}]`;
+  })(),
+  log: (...a) => console.log(...[FM.tag, ...a]),
+  warn: (...a) => console.warn(...[FM.tag, ...a]),
+  err:  (...a) => console.error(...[FM.tag, ...a]),
+};
+
+FM.log("content.js loaded", {
+  href: location.href,
+  frameName: window.name || null,
+  ready: document.readyState,
+  IS_SF,
+  IS_FIVE9,
 });
 
-// ---- Helpers ----
-function ensureElement(id) {
-  return document.getElementById(id);
-}
+FM.log("detect", { IS_SF, IS_FIVE9, host: FM_HOST, name: window.name || null });
 
-// Wire your existing builders:
-function tryInitTabToastWidget() {
-  if (!ensureElement("kill-controls")) {
-    // call your buildControlPanel() from your existing code
-    buildControlPanel();
-  }
-}
 
-function tryInitASMWidget() {
-  if (!ensureElement("asm-controls")) {
-    // call your buildASMWidget() from your existing code
-    buildASMWidget();
-  }
-}
+// ---------- Config/state ----------
+const IDS = {
+  CLEANUP: "cleanup-controls", // Tabs/Toasts panel
+  ASM: "asm-controls",         // ASM panel
+};
 
-// ---- CONFIG (synced from popup) ----
 let cfg = {
-  tabLooper: false,
+  tabLooper:   false,
   toastLooper: false,
-  tabLimit: 10,
-  asmDelay: 3,
-  asmVolume: 0.5,
-  fontSize: 14,
+  tabLimit:    10,
+  asmDelay:    3,
+  asmVolume:   0.5,
+  fontSize:    14,
   widgetWidth: 160,
 };
 
-// ---- HELPERS ----
 const qsAll = (sel) => Array.from(document.querySelectorAll(sel));
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-// ---- TAB/TOAST KILLER WIDGET ----
-let tabLoop = null;
+// Looper timers
+let tabLoop   = null;
 let toastLoop = null;
 
-function buildKillPanel() {
-  if (document.getElementById("kill-controls")) return;
+// ASM timers/state
+let asmLoopActive = false;
+let asmLoopInterval = null;
+let asmCountdown = null;
+let asmReadyForNext = true;
+
+// ---------- Bootstrap which widgets to show ----------
+initPerSurface();
+const reinitObserver = new MutationObserver(() => {
+  FM.log("Mutation observed → reinit check…");
+  if (IS_SF) {
+    ensure(IDS.CLEANUP) || buildCleanupPanel();
+  }
+  if (IS_FIVE9) {
+    ensure(IDS.ASM)     || buildASMPanel();
+  }
+});
+reinitObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+function initPerSurface() {
+  if (IS_SF) {
+    FM.log("Surface: Salesforce → load Cleanup + ASM");
+    buildCleanupPanel();
+  } else if (IS_FIVE9) {
+    FM.log("Surface: Five9 → load ASM only");
+    buildASMPanel();
+  } else {
+    FM.log("Surface: unknown → no panels");
+  }
+}
+
+function ensure(id) {
+  return document.getElementById(id);
+}
+
+// =====================
+// Cleanup Panel (Tabs & Toasts)
+// =====================
+function buildCleanupPanel() {
+  FM.log("buildCleanupPanel(): injecting UI…");
+  if (ensure(IDS.CLEANUP)) return;
 
   const panel = document.createElement("div");
-  panel.id = "kill-controls";
+  panel.id = IDS.CLEANUP;
   Object.assign(panel.style, {
     position: "fixed",
     bottom: "20px",
@@ -96,10 +120,8 @@ function buildKillPanel() {
     opacity: "0.05",
   });
 
-  // Dragging
-  let isDragging = false,
-    offsetX = 0,
-    offsetY = 0;
+  // --- Dragging
+  let isDragging = false, offsetX = 0, offsetY = 0;
   const dragHandle = document.createElement("div");
   dragHandle.innerHTML = `
     <svg width="18" height="18" viewBox="0 0 100 100" fill="#555">
@@ -108,11 +130,7 @@ function buildKillPanel() {
       <circle cx="20" cy="60" r="10"/>
       <circle cx="60" cy="60" r="10"/>
     </svg>`;
-  Object.assign(dragHandle.style, {
-    cursor: "move",
-    paddingTop: "4px",
-    marginRight: "auto",
-  });
+  Object.assign(dragHandle.style, { cursor: "move", paddingTop: "4px", marginRight: "auto" });
   dragHandle.addEventListener("mousedown", (e) => {
     isDragging = true;
     const r = panel.getBoundingClientRect();
@@ -121,51 +139,23 @@ function buildKillPanel() {
     e.preventDefault();
   });
   document.addEventListener("mousemove", (e) => {
-    if (isDragging) {
-      panel.style.left = `${e.clientX - offsetX}px`;
-      panel.style.top = `${e.clientY - offsetY}px`;
-      panel.style.right = "auto";
-      panel.style.bottom = "auto";
-    }
+    if (!isDragging) return;
+    panel.style.left = `${e.clientX - offsetX}px`;
+    panel.style.top  = `${e.clientY - offsetY}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
   });
-  document.addEventListener("mouseup", () => {
-    isDragging = false;
-  });
+  document.addEventListener("mouseup", () => { isDragging = false; });
 
-  // Top bar icons
-  const resetBtn = document.createElement("button");
-  resetBtn.textContent = "↘";
-  Object.assign(resetBtn.style, {
-    border: "none",
-    background: "none",
-    color: "#555",
-    cursor: "pointer",
-    padding: "0 6px",
+  // --- Top bar
+  const resetBtn = iconBtn("↘", "Snap to bottom-right", () => {
+    Object.assign(panel.style, { bottom: "20px", right: "20px", top: "auto", left: "auto" });
   });
-  resetBtn.title = "Snap to bottom-right";
-  resetBtn.onclick = () =>
-    Object.assign(panel.style, {
-      bottom: "20px",
-      right: "20px",
-      top: "auto",
-      left: "auto",
-    });
-
-  const trashBtn = document.createElement("button");
-  trashBtn.textContent = "✕";
-  Object.assign(trashBtn.style, {
-    border: "none",
-    background: "none",
-    color: "#555",
-    cursor: "pointer",
-    padding: "0 6px",
-  });
-  trashBtn.title = "Remove panel";
-  trashBtn.onclick = () => {
+  const trashBtn = iconBtn("✕", "Remove panel", () => {
     stopTabLoop();
     stopToastLoop();
     panel.remove();
-  };
+  });
 
   const topBar = document.createElement("div");
   topBar.style.display = "flex";
@@ -176,8 +166,9 @@ function buildKillPanel() {
   icons.append(resetBtn, trashBtn);
   topBar.append(dragHandle, icons);
 
-  // Buttons
-  const killTabsBtn = mkBtn("Kill Tabs", "#0070d2", async () => {
+  // --- Buttons
+  const killTabsBtn = fullBtn("Close Extra Tabs", "#0070d2", async () => {
+    FM.log("Kill tabs: closing beyond limit", cfg.tabLimit);
     const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
     for (const item of tabs) {
       const button = item.querySelector(".slds-button_icon-x-small");
@@ -188,21 +179,22 @@ function buildKillPanel() {
     }
   });
 
-  const tabLoopBtn = mkToggleBtn(
-    () => (tabLoop ? "Stop Tab Loop" : "Start Tab Loop"),
+  const tabLoopBtn = toggleBtn(
+    () => (tabLoop ? "Stop Tab Auto-Close" : "Start Tab Auto-Close"),
     () => (tabLoop ? "#c0392b" : "#1a7f5a"),
     () => (tabLoop ? stopTabLoop() : startTabLoop())
   );
 
-  const killToastsBtn = mkBtn("Kill Toasts", "#555", () => {
+  const killToastsBtn = fullBtn("Dismiss Toasts (5s)", "#555", () => {
+    FM.log("Dismiss toasts burst");
     const intv = setInterval(() => {
       qsAll(".slds-notify__close .toastClose").forEach((btn) => btn.click());
     }, 500);
     setTimeout(() => clearInterval(intv), 5000);
   });
 
-  const toastLoopBtn = mkToggleBtn(
-    () => (toastLoop ? "Stop Toast Loop" : "Start Toast Loop"),
+  const toastLoopBtn = toggleBtn(
+    () => (toastLoop ? "Stop Toast Auto-Close" : "Start Toast Auto-Close"),
     () => (toastLoop ? "#c0392b" : "#1a7f5a"),
     () => (toastLoop ? stopToastLoop() : startToastLoop())
   );
@@ -212,49 +204,31 @@ function buildKillPanel() {
   panel.addEventListener("mouseleave", () => (panel.style.opacity = "0.05"));
   document.body.appendChild(panel);
 
-  function mkBtn(label, bg, onclick) {
+  // -- helpers for panel UI
+  function iconBtn(text, title, onclick) {
     const b = document.createElement("button");
-    Object.assign(b.style, {
-      margin: "4px 0",
-      width: "100%",
-      padding: "6px",
-      border: "none",
-      borderRadius: "4px",
-      background: bg,
-      color: "#fff",
-      cursor: "pointer",
-    });
-    b.textContent = label;
-    b.onclick = onclick;
-    return b;
+    Object.assign(b.style, { border: "none", background: "none", color: "#555", cursor: "pointer", padding: "0 6px" });
+    b.textContent = text; b.title = title; b.onclick = onclick; return b;
   }
-  function mkToggleBtn(labelFn, bgFn, handler) {
+  function fullBtn(label, bg, onclick) {
     const b = document.createElement("button");
     Object.assign(b.style, {
-      margin: "4px 0",
-      width: "100%",
-      padding: "6px",
-      border: "none",
-      borderRadius: "4px",
-      background: "#1a7f5a",
-      color: "#fff",
-      cursor: "pointer",
+      margin: "4px 0", width: "100%", padding: "6px",
+      border: "none", borderRadius: "4px", background: bg, color: "#fff", cursor: "pointer"
     });
-    const sync = () => {
-      b.textContent = labelFn();
-      b.style.background = bgFn();
-    };
-    b.onclick = () => {
-      handler();
-      sync();
-    };
-    sync();
-    return b;
+    b.textContent = label; b.onclick = onclick; return b;
+  }
+  function toggleBtn(labelFn, bgFn, handler) {
+    const b = fullBtn("", "#1a7f5a", () => { handler(); sync(); });
+    function sync() { b.textContent = labelFn(); b.style.background = bgFn(); }
+    sync(); return b;
   }
 }
 
+// ---- Tab/Toast loops (single implementation) ----
 function startTabLoop() {
   if (tabLoop) return;
+  FM.log("startTabLoop()");
   tabLoop = setInterval(() => {
     const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
     for (let i = cfg.tabLimit; i < tabs.length; i++) {
@@ -264,32 +238,33 @@ function startTabLoop() {
   }, 1000);
 }
 function stopTabLoop() {
+  FM.log("stopTabLoop()");
   clearInterval(tabLoop);
   tabLoop = null;
 }
-
 function startToastLoop() {
   if (toastLoop) return;
+  FM.log("startToastLoop()");
   toastLoop = setInterval(() => {
     qsAll(".slds-notify__close .toastClose").forEach((btn) => btn.click());
   }, 1000);
 }
 function stopToastLoop() {
+  FM.log("stopToastLoop()");
   clearInterval(toastLoop);
   toastLoop = null;
 }
 
-// ---- ASM NEXT CALL WIDGET ----
-let loopActive = false;
-let loopInterval = null;
-let countdown = null;
-let readyForNextCountdown = true;
-
-function buildASMWidget() {
-  if (document.getElementById("asm-controls")) return;
+// =====================
+// ASM Panel
+// =====================
+function buildASMPanel() {
+  if (!IS_FIVE9) { FM.log("buildASMPanel() skipped: not Five9"); return; } // ✅ guard
+  FM.log("buildASMPanel(): injecting UI…");
+  if (ensure(IDS.ASM)) return;
 
   const panel = document.createElement("div");
-  panel.id = "asm-controls";
+  panel.id = IDS.ASM;
   Object.assign(panel.style, {
     position: "fixed",
     bottom: "200px",
@@ -306,200 +281,164 @@ function buildASMWidget() {
     opacity: "0.05",
   });
 
-  // Dragging
-  let isDragging = false,
-    offsetX = 0,
-    offsetY = 0;
+  // --- Dragging
+  let isDragging = false, offsetX = 0, offsetY = 0;
   const dragHandle = document.createElement("div");
   dragHandle.innerHTML = `
     <svg width="18" height="18" viewBox="0 0 100 100" fill="#555">
       <circle cx="20" cy="20" r="10"/><circle cx="60" cy="20" r="10"/>
       <circle cx="20" cy="60" r="10"/><circle cx="60" cy="60" r="10"/>
     </svg>`;
-  Object.assign(dragHandle.style, {
-    cursor: "move",
-    paddingTop: "4px",
-    marginRight: "auto",
-  });
+  Object.assign(dragHandle.style, { cursor: "move", paddingTop: "4px", marginRight: "auto" });
   dragHandle.addEventListener("mousedown", (e) => {
     isDragging = true;
     const r = panel.getBoundingClientRect();
-    offsetX = e.clientX - r.left;
-    offsetY = e.clientY - r.top;
+    offsetX = e.clientX - r.left; offsetY = e.clientY - r.top;
     e.preventDefault();
   });
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
     panel.style.left = `${e.clientX - offsetX}px`;
-    panel.style.top = `${e.clientY - offsetY}px`;
-    panel.style.right = "auto";
-    panel.style.bottom = "auto";
+    panel.style.top  = `${e.clientY - offsetY}px`;
+    panel.style.right = "auto"; panel.style.bottom = "auto";
   });
-  document.addEventListener("mouseup", () => {
-    isDragging = false;
-  });
+  document.addEventListener("mouseup", () => { isDragging = false; });
 
-  // Top bar
-  const resetBtn = document.createElement("button");
-  resetBtn.textContent = "↘";
-  Object.assign(resetBtn.style, {
-    border: "none",
-    background: "none",
-    color: "#555",
-    cursor: "pointer",
-    padding: "0 6px",
+  // --- Top bar
+  const resetBtn = iconBtn("↘", "Snap", () => {
+    Object.assign(panel.style, { bottom: "200px", left: "300px", top: "auto", right: "auto" });
   });
-  resetBtn.title = "Snap";
-  resetBtn.onclick = () =>
-    Object.assign(panel.style, {
-      bottom: "200px",
-      left: "300px",
-      top: "auto",
-      right: "auto",
-    });
-
-  const trashBtn = document.createElement("button");
-  trashBtn.textContent = "✕";
-  Object.assign(trashBtn.style, {
-    border: "none",
-    background: "none",
-    color: "#555",
-    cursor: "pointer",
-    padding: "0 6px",
-  });
-  trashBtn.title = "Remove panel";
-  trashBtn.onclick = () => {
-    stopLoop();
-    panel.remove();
-  };
+  const trashBtn = iconBtn("✕", "Remove panel", () => { stopAsmLoop(); panel.remove(); });
 
   const topBar = document.createElement("div");
-  Object.assign(topBar.style, {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "8px",
-  });
+  Object.assign(topBar.style, { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" });
   const iconGroup = document.createElement("div");
   iconGroup.append(resetBtn, trashBtn);
   topBar.append(dragHandle, iconGroup);
 
-  // Buttons
-  const nextCallBtn = document.createElement("button");
-  nextCallBtn.textContent = "ASM Next Call";
-  styleBtn(nextCallBtn, "#0070d2");
-  nextCallBtn.onclick = async () => {
-    clearInterval(countdown);
-    countdown = null;
-    if (nextCallBtn.disabled) return;
-    nextCallBtn.disabled = true;
-    nextCallBtn.textContent = "Working...";
-    try {
-      // Your click path:
-      await retryClick("#call_endInteractionBtn", 5, 250);
-      readyForNextCountdown = false;
-      // Choose disposition (your ID here):
-      naturalClick('label[for="disp_id_42"]');
-      // End interaction:
-      naturalClick("#setDisposition_call");
-      // Cancel preview-renew (spam it):
-      for (let i = 0; i < 15; i++) {
-        naturalClick("#sfli-cancel-preview-renew");
-        await delay(250);
-      }
-      readyForNextCountdown = true;
-    } catch (e) {
-      console.error("ASM error:", e);
-    }
-    nextCallBtn.disabled = false;
-    nextCallBtn.textContent = "ASM Next Call";
-  };
-
-  const loopBtn = document.createElement("button");
-  loopBtn.textContent = "START LOOP";
-  styleBtn(loopBtn, "#1a7f5a");
-  loopBtn.onclick = () => (loopActive ? stopLoop() : startLoop());
+  // --- Buttons
+  const nextCallBtn = fullBtn("ASM Next Call", "#0070d2", onAsmNextCall);
+  const loopBtn     = fullBtn("START LOOP", "#1a7f5a", () => (asmLoopActive ? stopAsmLoop() : startAsmLoop(loopBtn)));
 
   // Inputs (Delay, Volume)
   const row = document.createElement("div");
-  Object.assign(row.style, {
-    display: "flex",
-    gap: "4px",
-    marginTop: "4px",
-    width: "100%",
-  });
+  Object.assign(row.style, { display: "flex", gap: "4px", marginTop: "4px", width: "100%" });
 
-  const delayInput = document.createElement("input");
-  Object.assign(delayInput, {
-    type: "number",
-    min: "0",
-    value: String(cfg.asmDelay),
-  });
-  styleInput(delayInput);
+  const delayInput = mkInputNumber(cfg.asmDelay, { min: 0 }, (v) => (cfg.asmDelay = Math.max(0, v)));
   delayInput.title = "Delay (seconds)";
-  delayInput.onchange = () =>
-    (cfg.asmDelay = Math.max(0, parseInt(delayInput.value || "0", 10)));
-
-  const volumeInput = document.createElement("input");
-  Object.assign(volumeInput, {
-    type: "number",
-    min: "0",
-    max: "1",
-    step: "0.1",
-    value: String(cfg.asmVolume),
-  });
-  styleInput(volumeInput);
+  const volumeInput = mkInputNumber(cfg.asmVolume, { min: 0, max: 1, step: 0.1 }, (v) => (cfg.asmVolume = Math.min(1, Math.max(0, v))));
   volumeInput.title = "Volume (0.0–1.0)";
-  volumeInput.onchange = () =>
-    (cfg.asmVolume = Math.min(
-      1,
-      Math.max(0, parseFloat(volumeInput.value || "0.5"))
-    ));
-
   row.append(delayInput, volumeInput);
 
   // Assemble
   panel.append(topBar, nextCallBtn, loopBtn, row);
-  panel.addEventListener("mouseenter", () => {
-    panel.style.opacity = "1";
-    stopLoop();
-  });
+  panel.addEventListener("mouseenter", () => { panel.style.opacity = "1"; stopAsmLoop(); });
   panel.addEventListener("mouseleave", () => (panel.style.opacity = "0.05"));
   document.body.appendChild(panel);
 
-  // ---- ASM behaviors ----
-  function playDing(freq = 800, duration = 150, type = "sine") {
+  // --- ASM behaviors
+  function onAsmNextCall() {
+    clearInterval(asmCountdown);
+    asmCountdown = null;
+    if (nextCallBtn.disabled) return;
+    nextCallBtn.disabled = true;
+    nextCallBtn.textContent = "Working...";
+    (async () => {
+      try {
+        // Click path (update selectors to your exact environment if needed)
+        await retryClick("#call_endInteractionBtn", 5, 250);
+        asmReadyForNext = false;
+        naturalClick('label[for="disp_id_42"]');
+        naturalClick("#setDisposition_call");
+        for (let i = 0; i < 15; i++) { naturalClick("#sfli-cancel-preview-renew"); await delay(250); }
+        asmReadyForNext = true;
+      } catch (e) {
+        FM.err("ASM error:", e);
+      } finally {
+        nextCallBtn.disabled = false;
+        nextCallBtn.textContent = "ASM Next Call";
+      }
+    })();
+  }
+
+  function startAsmLoop(loopBtnEl) {
+    asmLoopActive = true;
+    loopBtnEl.textContent = "STOP LOOP";
+    loopBtnEl.style.background = "#c0392b";
+    FM.log("ASM loop started");
+    asmLoopInterval = setInterval(async () => {
+      const stateEl = document.querySelector("#sfli-call-header .f9-nowrap-ellipsis span:nth-child(2)");
+      const stateText = stateEl?.textContent?.trim();
+      const timeEl = document.querySelector("#time-counter .stopwatch-partial");
+      const timeText = timeEl?.textContent?.trim();
+      let dialingSeconds = 0;
+      if (timeText) {
+        const parts = timeText.split(":").map(Number);
+        dialingSeconds = parts.length === 3 ? parts[2] : (parts[1] || 0);
+      }
+      const callTypeEl = document.querySelector("#sfli-call-header .f9-nowrap-ellipsis span:first-child");
+      const callTypeText = callTypeEl?.textContent?.trim();
+
+      const shouldCountdown =
+        ((stateText === ": Live Call") ||
+         (stateText === ": Dialing" && dialingSeconds >= 35)) &&
+        !asmCountdown &&
+        callTypeText !== "Inbound Call" &&
+        asmReadyForNext === true;
+
+      if (shouldCountdown) {
+        let seconds = cfg.asmDelay;
+        beep(1600, 150, "triangle"); // initial high beep
+        asmCountdown = setInterval(() => {
+          if (seconds <= 0) {
+            beep(400, 300); // low beep
+            clearInterval(asmCountdown);
+            asmCountdown = null;
+            nextCallBtn.click(); // triggers the 1-click sequence
+          } else {
+            beep(800, 150); // mid beep every tick
+          }
+          seconds--;
+        }, 1000);
+      }
+    }, 10);
+  }
+
+  function stopAsmLoop() {
+    if (!asmLoopActive) return;
+    asmLoopActive = false;
+    clearInterval(asmLoopInterval);
+    asmLoopInterval = null;
+    clearInterval(asmCountdown);
+    asmCountdown = null;
+    const btn = panel.querySelector("button:nth-of-type(2)"); // loopBtn
+    if (btn) { btn.textContent = "START LOOP"; btn.style.background = "#1a7f5a"; }
+    FM.log("ASM loop stopped");
+  }
+
+  function beep(freq = 800, duration = 150, type = "sine") {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    osc.connect(gain); gain.connect(ctx.destination);
     gain.gain.setValueAtTime(cfg.asmVolume, ctx.currentTime);
     osc.start();
-    gain.gain.exponentialRampToValueAtTime(
-      0.001,
-      ctx.currentTime + duration / 1000
-    );
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration / 1000);
     osc.stop(ctx.currentTime + duration / 1000);
   }
 
   function naturalClick(selector) {
     const el = document.querySelector(selector);
+    FM.log("naturalClick", selector, "→", !!el);
     if (!el) return false;
-    // Ensure element is enabled & visible-ish
-    if (el.disabled || el.getAttribute?.("aria-disabled") === "true")
-      return false;
-
-    // Try focus + pointer events like a human
+    if (el.disabled || el.getAttribute?.("aria-disabled") === "true") return false;
     el.focus?.();
     el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
-    el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-    el.click?.(); // final native click
-
+    el.dispatchEvent(new MouseEvent("mousedown",    { bubbles: true }));
+    el.dispatchEvent(new PointerEvent("pointerup",  { bubbles: true }));
+    el.dispatchEvent(new MouseEvent("mouseup",      { bubbles: true }));
+    el.click?.();
     return true;
   }
 
@@ -511,77 +450,26 @@ function buildASMWidget() {
     return false;
   }
 
-  function startLoop() {
-    loopActive = true;
-    loopBtn.textContent = "STOP LOOP";
-    loopBtn.style.background = "#c0392b";
-    loopInterval = setInterval(async () => {
-      const stateEl = document.querySelector(
-        "#sfli-call-header .f9-nowrap-ellipsis span:nth-child(2)"
-      );
-      const stateText = stateEl?.textContent?.trim();
-      const timeEl = document.querySelector("#time-counter .stopwatch-partial");
-      const timeText = timeEl?.textContent?.trim();
-      let dialingSeconds = 0;
-      if (timeText) {
-        const parts = timeText.split(":").map(Number);
-        dialingSeconds = parts.length === 3 ? parts[2] : parts[1] || 0;
-      }
-      const callTypeEl = document.querySelector(
-        "#sfli-call-header .f9-nowrap-ellipsis span:first-child"
-      );
-      const callTypeText = callTypeEl?.textContent?.trim();
-
-      const shouldCountdown =
-        (stateText === ": Live Call" ||
-          (stateText === ": Dialing" && dialingSeconds >= 35)) &&
-        !countdown &&
-        callTypeText !== "Inbound Call" &&
-        readyForNextCountdown === true;
-
-      if (shouldCountdown) {
-        let seconds = cfg.asmDelay;
-        playDing(1600, 150, "triangle"); // initial high beep
-        countdown = setInterval(() => {
-          if (seconds <= 0) {
-            playDing(400, 300); // low beep
-            clearInterval(countdown);
-            countdown = null;
-            nextCallBtn.click(); // triggers the 1-click sequence
-          } else {
-            playDing(800, 150); // mid beep every tick
-          }
-          seconds--;
-        }, 1000);
-      }
-    }, 10);
+  // UI helpers
+  function iconBtn(text, title, onclick) {
+    const b = document.createElement("button");
+    Object.assign(b.style, { border: "none", background: "none", color: "#555", cursor: "pointer", padding: "0 6px" });
+    b.textContent = text; b.title = title; b.onclick = onclick; return b;
   }
-
-  function stopLoop() {
-    loopActive = false;
-    clearInterval(loopInterval);
-    loopInterval = null;
-    clearInterval(countdown);
-    countdown = null;
-    loopBtn.textContent = "START LOOP";
-    loopBtn.style.background = "#1a7f5a";
-  }
-
-  function styleBtn(b, bg) {
+  function fullBtn(label, bg, onclick) {
+    const b = document.createElement("button");
     Object.assign(b.style, {
-      margin: "4px 0",
-      width: "100%",
-      padding: "6px",
-      border: "none",
-      borderRadius: "4px",
-      background: bg,
-      color: "#fff",
-      cursor: "pointer",
-      textAlign: "center",
-      fontSize: cfg.fontSize + "px",
+      margin: "4px 0", width: "100%", padding: "6px",
+      border: "none", borderRadius: "4px",
+      background: bg, color: "#fff", cursor: "pointer",
+      textAlign: "center", fontSize: cfg.fontSize + "px",
     });
+    b.textContent = label; b.onclick = onclick; return b;
   }
-  function styleInput(i) {
+  function mkInputNumber(value, attrs, onChange) {
+    const i = document.createElement("input");
+    i.type = "number";
+    Object.assign(i, { value: String(value), ...attrs });
     Object.assign(i.style, {
       flex: "1",
       padding: "6px",
@@ -593,23 +481,23 @@ function buildASMWidget() {
       color: "black",
       minWidth: "0",
     });
+    i.onchange = () => onChange(Number(i.value));
+    return i;
   }
 }
 
-// ---- INIT + SETTINGS ----
+// =====================
+// Settings + messaging
+// =====================
 function applySettings(newCfg) {
   cfg = { ...cfg, ...newCfg };
-  // Update widget styling live
-  const k = document.getElementById("kill-controls");
-  if (k) {
-    k.style.fontSize = cfg.fontSize + "px";
-    k.style.width = cfg.widgetWidth + "px";
-  }
-  const a = document.getElementById("asm-controls");
-  if (a) {
-    a.style.fontSize = cfg.fontSize + "px";
-    a.style.width = cfg.widgetWidth + "px";
-  }
+  FM.log("applySettings", cfg);
+
+  // Update panel sizing
+  const cleanup = ensure(IDS.CLEANUP);
+  if (cleanup) { cleanup.style.fontSize = cfg.fontSize + "px"; cleanup.style.width = cfg.widgetWidth + "px"; }
+  const asm = ensure(IDS.ASM);
+  if (asm) { asm.style.fontSize = cfg.fontSize + "px"; asm.style.width = cfg.widgetWidth + "px"; }
 
   // Respect toggles
   if (cfg.tabLooper && !tabLoop) startTabLoop();
@@ -618,39 +506,16 @@ function applySettings(newCfg) {
   if (!cfg.toastLooper && toastLoop) stopToastLoop();
 }
 
-function startTabLoop() {
-  if (!tabLoop)
-    tabLoop = setInterval(() => {
-      const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
-      for (let i = cfg.tabLimit; i < tabs.length; i++) {
-        const button = tabs[0]?.querySelector(".slds-button_icon-x-small");
-        if (button) button.click();
-      }
-    }, 1000);
-}
-
-function stopTabLoop() {
-  clearInterval(tabLoop);
-  tabLoop = null;
-}
-function startToastLoop() {
-  if (!toastLoop)
-    toastLoop = setInterval(() => {
-      qsAll(".slds-notify__close .toastClose").forEach((btn) => btn.click());
-    }, 1000);
-}
-function stopToastLoop() {
-  clearInterval(toastLoop);
-  toastLoop = null;
-}
-
-// Bootstrap on page
+// Bootstrap
 chrome.storage.sync.get(null, (stored) => {
   applySettings(stored || {});
-  buildKillPanel();
-  buildASMWidget();
-
-  // Auto-start loops if toggled on
+  // If surface init didn’t run a panel for some reason, ensure:
+  if (IS_SF) {
+    ensure(IDS.CLEANUP) || buildCleanupPanel();
+    ensure(IDS.ASM)     || buildASMPanel();
+  } else if (IS_FIVE9) {
+    ensure(IDS.ASM)     || buildASMPanel();
+  }
   if (cfg.tabLooper) startTabLoop();
   if (cfg.toastLooper) startToastLoop();
 });
@@ -661,7 +526,7 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "RESET_WIDGETS") {
     stopTabLoop();
     stopToastLoop();
-    document.getElementById("kill-controls")?.remove();
-    document.getElementById("asm-controls")?.remove();
+    ensure(IDS.CLEANUP)?.remove();
+    ensure(IDS.ASM)?.remove();
   }
 });
