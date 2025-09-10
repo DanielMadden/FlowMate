@@ -262,6 +262,8 @@
       fontSize: "14px",
     });
 
+    loopBtn.onclick = () => startLoop();
+
     const startLoop = () => {
       if (loopActive) return;
       loopActive = true;
