@@ -346,6 +346,7 @@
     panel.addEventListener("mouseleave", () => { panel.style.opacity = "0.05"; });
 
     document.body.appendChild(panel);
+    return(panel)
   }
 
   // ===== Kill Tabs/Toasts Panel (only in Salesforce TOP) =====
@@ -463,9 +464,94 @@
     panel.addEventListener("mouseleave", () => (panel.style.opacity = "0.05"));
 
     document.body.appendChild(panel);
+    return({
+      topBar,
+      killTabsBtn,
+      tabLoopBtn,
+      killToastsBtn,
+      tastLoopBtn
+    })
   }
 
   // ===== Bootstrap (surface-aware) =====
-  buildControlPanel(); // Salesforce top only
-  buildASMWidget();    // Five9 only
+  const panelControl = buildControlPanel(); // Salesforce top only
+  const panelASM = buildASMWidget();    // Five9 only
+
+// === Message bridge (popup <-> content script) ===
+chrome.runtime?.onMessage?.addListener((msg, _sender, sendResponse) => {
+ console.log(`FlowMate: `)
+ console.log(msg.type)
+  let handled = true;
+
+  try {
+    switch (msg.type) {
+      // ---------- ASM (Five9 frame only) ----------
+      case "ASM_NEXT_CALL":
+        if (typeof nextCallBtn?.click === "function") nextCallBtn.click();
+        break;
+      case "ASM_START_LOOP":
+        if (typeof startLoop === "function") startLoop();
+        break;
+      case "ASM_STOP_LOOP":
+        if (typeof stopLoop === "function") stopLoop();
+        break;
+      case "ASM_SET_DELAY":
+        if (typeof msg.value === "number") {
+          asmDelaySeconds = msg.value;
+          if (delayInput) delayInput.value = String(msg.value);
+        }
+        break;
+      case "ASM_SET_VOLUME":
+        if (typeof msg.value === "number") {
+          asmVolume = msg.value;
+          if (volumeInput) volumeInput.value = String(msg.value);
+        }
+        break;
+
+      // ---------- Salesforce (top window only) ----------
+      case "SF_KILL_TABS":
+        if (typeof killTabsBtn?.click === "function") killTabsBtn.click();
+        break;
+      case "SF_START_TAB_LOOP":
+        if (typeof startTabLoop === "function") startTabLoop();
+        break;
+      case "SF_STOP_TAB_LOOP":
+        if (typeof stopTabLoop === "function") stopTabLoop();
+        break;
+      case "SF_KILL_TOASTS_BURST":
+        if (typeof killToastsBtn?.click === "function") killToastsBtn.click();
+        break;
+      case "SF_START_TOAST_LOOP":
+        if (typeof startToastLoop === "function") startToastLoop();
+        break;
+      case "SF_STOP_TOAST_LOOP":
+        if (typeof stopToastLoop === "function") stopToastLoop();
+        break;
+
+      // ---------- Query state (for popup boot) ----------
+      case "GET_STATE":
+        sendResponse({
+          env: { inTop, isSalesforce, isFive9 },
+          asm: {
+            present: !!document.getElementById("asm-controls"),
+            delay: typeof asmDelaySeconds === "number" ? asmDelaySeconds : null,
+            volume: typeof asmVolume === "number" ? asmVolume : null
+          },
+          salesforce: {
+            present: !!document.getElementById("kill-controls")
+          }
+        });
+        break;
+
+      default:
+        handled = false;
+    }
+  } catch (e) {
+    console.error("FlowMate message error:", e);
+  }
+
+  // Let Chrome know we might send async response for GET_STATE
+  return msg.type === "GET_STATE" || handled;
+});
+
 })();

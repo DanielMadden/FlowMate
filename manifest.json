@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "GhostPanel (MVP)",
+  "name": "FlowMate for DB",
   "version": "0.1.1",
-  "description": "ASM Next Call + Tab/Toast helpers.",
-  "action": { "default_popup": "popup.html" },
+  "description": "ASM Next Call + Tab/Toast cleaners.",
+  "action": {"default_title": "FlowMate", "default_popup": "popup.html" },
 
-  "permissions": ["storage", "tabs", "scripting"],
+  "permissions": ["storage", "tabs", "scripting", "activeTab"],
 
   "host_permissions": [
     "https://*.lightning.force.com/*",

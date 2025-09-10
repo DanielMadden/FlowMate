@@ -1,85 +1,116 @@
-const KEYS = [
-  "tabLooper",
-  "toastLooper",
-  "tabLimit",
-  "asmDelay",
-  "asmVolume",
-  "fontSize",
-  "widgetWidth",
-];
-
-function getActiveTabId() {
-  return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) =>
-      resolve(tabs[0]?.id)
-    );
-  });
+// Helper: get active tab
+async function getActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab;
 }
 
-function load() {
-  chrome.storage.sync.get(KEYS, (cfg) => {
-    tabLooper.checked = !!cfg.tabLooper;
-    toastLooper.checked = !!cfg.toastLooper;
-    tabLimit.value = cfg.tabLimit ?? 10;
+// Helper: broadcast to all frames in the active tab
+async function sendToAllFrames(msg) {
+  const tab = await getActiveTab();
+  if (!tab?.id) return;
 
-    asmDelay.value = cfg.asmDelay ?? 3;
-    asmVolume.value = cfg.asmVolume ?? 0.5;
-
-    fontSize.value = cfg.fontSize ?? 14;
-    widgetWidth.value = cfg.widgetWidth ?? 160;
-  });
-}
-
-function currentConfig() {
-  return {
-    tabLooper: tabLooper.checked,
-    toastLooper: toastLooper.checked,
-    tabLimit: +tabLimit.value || 10,
-    asmDelay: +asmDelay.value || 3,
-    asmVolume: +asmVolume.value || 0.5,
-    fontSize: +fontSize.value || 14,
-    widgetWidth: +widgetWidth.value || 160,
-  };
-}
-
-async function sendToContent(type, payload) {
-  const tabId = await getActiveTabId();
-  if (!tabId) return;
+  // Try to enumerate frames; if not available, fall back to top-frame send
   try {
-    await chrome.tabs.sendMessage(tabId, { type, payload });
-  } catch (e) {
-    // content script not injected on this page or origin mismatch
+    const frames = await chrome.webNavigation.getAllFrames({ tabId: tab.id });
+    await Promise.all(
+      frames.map(f =>
+        chrome.tabs.sendMessage(tab.id, msg, { frameId: f.frameId }).catch(() => {})
+      )
+    );
+  } catch {
+    await chrome.tabs.sendMessage(tab.id, msg).catch(() => {});
   }
 }
 
-apply.onclick = async () => {
-  const cfg = currentConfig();
-  chrome.storage.sync.set(cfg, async () => {
-    await sendToContent("APPLY_SETTINGS", cfg);
-  });
+async function getState() {
+  const tab = await getActiveTab();
+  if (!tab?.id) return null;
+
+  // Query all frames; return first responder (Five9 or SF frame will answer)
+  try {
+    const frames = await chrome.webNavigation.getAllFrames({ tabId: tab.id });
+    for (const f of frames) {
+      try {
+        const res = await chrome.tabs.sendMessage(tab.id, { type: "GET_STATE" }, { frameId: f.frameId });
+        if (res) return res;
+      } catch {}
+    }
+  } catch {
+    try { return await chrome.tabs.sendMessage(tab.id, { type: "GET_STATE" }); } catch {}
+  }
+  return null;
+}
+
+// Wire UI
+const $ = (s) => document.querySelector(s);
+const asmNext = $("#asm-next");
+const asmToggle = $("#asm-toggle");
+const asmDelay = $("#asm-delay");
+const asmVol = $("#asm-vol");
+const sfKillTabs = $("#sf-kill-tabs");
+const sfTabsToggle = $("#sf-tabs-toggle");
+const sfKillToasts = $("#sf-kill-toasts");
+const sfToastsToggle = $("#sf-toasts-toggle");
+const envNote = $("#env-note");
+const openDetached = $("#open-detached");
+
+asmNext.onclick = () => sendToAllFrames({ type: "ASM_NEXT_CALL" });
+asmToggle.onclick = async () => {
+  // naive toggle: ask for state is optional; we’ll just send start/stop based on button text
+  if (asmToggle.textContent.startsWith("Start")) {
+    await sendToAllFrames({ type: "ASM_START_LOOP" });
+    asmToggle.textContent = "Stop Loop";
+  } else {
+    await sendToAllFrames({ type: "ASM_STOP_LOOP" });
+    asmToggle.textContent = "Start Loop";
+  }
 };
 
-reset.onclick = async () => {
-  chrome.storage.sync.remove(KEYS, async () => {
-    load();
-    await sendToContent("RESET_WIDGETS");
-  });
+asmDelay.onchange = () =>
+  sendToAllFrames({ type: "ASM_SET_DELAY", value: Number(asmDelay.value) });
+
+asmVol.onchange = () =>
+  sendToAllFrames({ type: "ASM_SET_VOLUME", value: Number(asmVol.value) });
+
+sfKillTabs.onclick = () => sendToAllFrames({ type: "SF_KILL_TABS" });
+
+sfTabsToggle.onclick = async () => {
+  if (sfTabsToggle.textContent.startsWith("Start")) {
+    await sendToAllFrames({ type: "SF_START_TAB_LOOP" });
+    sfTabsToggle.textContent = "Stop Tab Loop";
+  } else {
+    await sendToAllFrames({ type: "SF_STOP_TAB_LOOP" });
+    sfTabsToggle.textContent = "Start Tab Loop";
+  }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  load();
-  // Autosave on change
-  [
-    tabLooper,
-    toastLooper,
-    tabLimit,
-    asmDelay,
-    asmVolume,
-    fontSize,
-    widgetWidth,
-  ].forEach((el) =>
-    el.addEventListener("change", () =>
-      chrome.storage.sync.set(currentConfig())
-    )
-  );
-});
+sfKillToasts.onclick = () => sendToAllFrames({ type: "SF_KILL_TOASTS_BURST" });
+
+sfToastsToggle.onclick = async () => {
+  if (sfToastsToggle.textContent.startsWith("Start")) {
+    await sendToAllFrames({ type: "SF_START_TOAST_LOOP" });
+    sfToastsToggle.textContent = "Stop Toast Loop";
+  } else {
+    await sendToAllFrames({ type: "SF_STOP_TOAST_LOOP" });
+    sfToastsToggle.textContent = "Start Toast Loop";
+  }
+};
+
+// Optional: open a detached, resizable window for a “bigger popout” feel
+openDetached.onclick = async () => {
+  const url = chrome.runtime.getURL("popup.html");
+  await chrome.windows.create({ url, type: "popup", width: 420, height: 420 });
+};
+
+// Initialize UI with current state (if a suitable frame responds)
+(async () => {
+  const state = await getState();
+  if (state) {
+    envNote.textContent =
+      `Detected: ${state.env.isFive9 ? "Five9" : state.env.isSalesforce ? "Salesforce" : "Unknown surface"}`;
+    if (state.asm.delay != null) asmDelay.value = String(state.asm.delay);
+    if (state.asm.volume != null) asmVol.value = String(state.asm.volume);
+  } else {
+    envNote.textContent = "No FlowMate widgets detected on this tab.";
+  }
+})();

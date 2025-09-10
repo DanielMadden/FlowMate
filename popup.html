@@ -1,67 +1,45 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    body { font-family: system-ui, sans-serif; width: 320px; padding: 12px; }
-    h3 { margin: 4px 0 12px; }
-    fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 10px 10px 6px; margin-bottom: 10px; }
-    legend { padding: 0 6px; }
-    .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-    .row > label { flex: 1; }
-    .row > input[type="number"] { width: 90px; }
-    .btnbar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
-    button { padding: 6px 10px; border: 1px solid #ccc; background: #fafafa; border-radius: 6px; cursor: pointer; }
-  </style>
-</head>
-<body>
-  <h3>MVP Helper</h3>
+  <head>
+    <meta charset="utf-8" />
+    <title>FlowMate</title>
+    <style>
+      body { font: 13px/1.4 system-ui, sans-serif; width: 280px; margin: 12px; }
+      h3 { margin: 12px 0 6px; }
+      .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+      input[type=number] { width: 80px; }
+      button { padding:6px 10px; }
+      .muted { opacity: .6; }
+    </style>
+  </head>
+  <body>
+    <h3>Five9 — ASM</h3>
+    <div class="row">
+      <button id="asm-next">Next Call</button>
+      <button id="asm-toggle">Start Loop</button>
+    </div>
+    <div class="row">
+      <label>Delay (s) <input id="asm-delay" type="number" min="0" value="3"></label>
+      <label>Volume <input id="asm-vol" type="number" min="0" max="1" step="0.1" value="0.5"></label>
+    </div>
 
-  <fieldset>
-    <legend>Tab/Toast Killer</legend>
+    <h3>Salesforce</h3>
     <div class="row">
-      <label>Enable tab auto-close loop</label>
-      <input id="tabLooper" type="checkbox">
+      <button id="sf-kill-tabs">Kill Tabs</button>
+      <button id="sf-tabs-toggle">Start Tab Loop</button>
     </div>
     <div class="row">
-      <label>Tab limit (keep ≤ N)</label>
-      <input id="tabLimit" type="number" min="0" value="10">
+      <button id="sf-kill-toasts">Kill Toasts (5s)</button>
+      <button id="sf-toasts-toggle">Start Toast Loop</button>
     </div>
-    <div class="row">
-      <label>Enable toast auto-close loop</label>
-      <input id="toastLooper" type="checkbox">
-    </div>
-  </fieldset>
 
-  <fieldset>
-    <legend>ASM Next Call</legend>
-    <div class="row">
-      <label>Countdown delay (s)</label>
-      <input id="asmDelay" type="number" min="0" value="3">
-    </div>
-    <div class="row">
-      <label>Beep volume (0–1)</label>
-      <input id="asmVolume" type="number" min="0" max="1" step="0.1" value="0.5">
-    </div>
-  </fieldset>
+    <p class="muted" id="env-note"></p>
 
-  <fieldset>
-    <legend>Widget Style</legend>
+    <hr />
     <div class="row">
-      <label>Font size (px)</label>
-      <input id="fontSize" type="number" min="10" value="14">
+      <button id="open-detached">Open as Window</button>
     </div>
-    <div class="row">
-      <label>Widget width (px)</label>
-      <input id="widgetWidth" type="number" min="120" value="160">
-    </div>
-  </fieldset>
 
-  <div class="btnbar">
-    <button id="apply">Apply to Tab</button>
-    <button id="reset">Reset</button>
-  </div>
-
-  <script src="popup.js"></script>
-</body>
+    <script src="popup.js" type="module"></script>
+  </body>
 </html>
