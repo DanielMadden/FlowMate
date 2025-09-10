@@ -410,8 +410,7 @@
         const over = items.length - 10;
         if (over > 0) {
           for (let i = 0; i < over; i++) {
-            const idx = items.length - 1 - i;
-            const btn = items[idx]?.querySelector(".slds-button_icon-x-small");
+            const btn = items[0]?.querySelector(".slds-button_icon-x-small");
             if (btn) btn.click();
           }
         }
