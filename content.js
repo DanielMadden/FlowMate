@@ -19,22 +19,19 @@
   if (window.__flowmateBootstrapped) return;
   window.__flowmateBootstrapped = true;
 
-  // ====== ICON SVGs (PASTE YOURS HERE) ======
+  // ====== ICON SVGs ======
   const DRAG_SVG = `
-    <!-- TODO: paste your drag dots SVG -->
     <svg width="18" height="18" viewBox="0 0 100 100" fill="#555" aria-label="Drag">
       <circle cx="20" cy="20" r="10"/><circle cx="60" cy="20" r="10"/>
       <circle cx="20" cy="60" r="10"/><circle cx="60" cy="60" r="10"/>
     </svg>`;
 
   const SNAP_SVG = `
-    <!-- TODO: paste your snap SVG -->
     <svg width="18" height="18" viewBox="0 0 24 24" fill="#555" aria-label="Snap">
       <path d="M12 2L15 8H9L12 2ZM12 22L9 16H15L12 22ZM2 12L8 15V9L2 12ZM22 12L16 9V15L22 12Z"/>
     </svg>`;
 
   const TRASH_SVG = `
-    <!-- TODO: paste your trash SVG -->
     <svg width="18" height="18" viewBox="0 0 24 24" fill="#555" aria-label="Remove">
       <path d="M3 6h18v2H5v13h14V8h2v15H3V6zm6-2h6v2H9V4zM8 11h2v8H8zm6 0h2v8h-2z"/>
     </svg>`;
@@ -43,6 +40,8 @@
   const qs = (sel, root = document) => root.querySelector(sel);
   const qsAll = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+  // 
 
   // ===== Panel chrome factory (drag + snap + delete identical everywhere) =====
   function makePanelChrome({ panel, snapTo, onRemove }) {
@@ -408,9 +407,7 @@
       if (tabLoop) return;
       tabLoop = setInterval(() => {
         const items = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
-        const over = items.length - 10;
-        if (over > 0) {
-          for (let i = 0; i < over; i++) {
+        while (items.length > )
             const btn = items[0]?.querySelector(".slds-button_icon-x-small");
             if (btn) btn.click();
           }
