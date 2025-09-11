@@ -1,7 +1,7 @@
 # FlowMate
 Chrome extension for my coworkers.
 
-This entire application code is a joke. I thought ChatGPT 5 was smart. I need to refactor it in order to:
+This application code is a joke. I thought ChatGPT 5 was smart. I need to refactor it in order to:
 - Expose all DOM-interactive functions at the top level
 	- Expose intervals at the top level and allow detection of whether they are active or not.
 - Set up buttons to trigger these functions
