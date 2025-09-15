@@ -22,23 +22,32 @@
 
   // ====== ICON SVGs (PASTE YOURS HERE) ======
   const DRAG_SVG = `
-    <!-- TODO: paste your drag dots SVG -->
-    <svg width="18" height="18" viewBox="0 0 100 100" fill="#555" aria-label="Drag">
+    <svg width="18" height="18" viewBox="0 0 100 100" fill="${color.gray}" aria-label="Drag">
       <circle cx="20" cy="20" r="10"/><circle cx="60" cy="20" r="10"/>
       <circle cx="20" cy="60" r="10"/><circle cx="60" cy="60" r="10"/>
     </svg>`;
 
   const SNAP_SVG = `
-    <!-- TODO: paste your snap SVG -->
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="#555" aria-label="Snap">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="${color.gray}" aria-label="Snap">
       <path d="M12 2L15 8H9L12 2ZM12 22L9 16H15L12 22ZM2 12L8 15V9L2 12ZM22 12L16 9V15L22 12Z"/>
     </svg>`;
 
   const TRASH_SVG = `
-    <!-- TODO: paste your trash SVG -->
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="#555" aria-label="Remove">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="${color.gray}" aria-label="Remove">
       <path d="M3 6h18v2H5v13h14V8h2v15H3V6zm6-2h6v2H9V4zM8 11h2v8H8zm6 0h2v8h-2z"/>
     </svg>`;
+
+  const color = {
+    blue: "#0070d2",
+    green: "#1a7f5a",
+    red: "#c0392b",
+    white: "#fff",
+    gray: "#555",
+    input: {
+      border: "#ccc",
+      fill: "#f5f5f5",
+    },
+  };
 
   // ===== Shared helpers =====
   const qs = (sel, root = document) => root.querySelector(sel);
@@ -73,7 +82,7 @@
     Object.assign(snapBtn.style, {
       border: "none",
       background: "none",
-      color: "#555",
+      color: color.gray,
       cursor: "pointer",
       width: "20px",
       padding: "0px",
@@ -95,7 +104,7 @@
     Object.assign(trashBtn.style, {
       border: "none",
       background: "none",
-      color: "#555",
+      color: color.gray,
       cursor: "pointer",
       width: "20px",
       padding: "0px",
@@ -163,7 +172,7 @@
       left: "300px",
       zIndex: "9999999",
       background: "rgba(255,255,255,0.3)",
-      color: "#fff",
+      color: color.white,
       padding: "10px",
       borderRadius: "8px",
       fontFamily: "sans-serif",
@@ -188,8 +197,8 @@
       padding: "6px",
       border: "none",
       borderRadius: "4px",
-      background: "#0070d2",
-      color: "#fff",
+      background: color.blue,
+      color: color.white,
       cursor: "pointer",
       textAlign: "center",
       fontSize: "14px",
@@ -268,8 +277,8 @@
       padding: "6px",
       border: "none",
       borderRadius: "4px",
-      background: "#1a7f5a",
-      color: "#fff",
+      background: color.green,
+      color: color.white,
       cursor: "pointer",
       textAlign: "center",
       fontSize: "14px",
@@ -281,7 +290,7 @@
       if (loopActive) return;
       loopActive = true;
       countdown = null;
-      loopBtn.style.background = "#c0392b";
+      loopBtn.style.background = color.red;
       loopBtn.textContent = "STOP LOOP";
       loopInterval = setInterval(async () => {
         const stateText = qs(
@@ -336,7 +345,7 @@
       clearInterval(countdown);
       loopInterval = null;
       countdown = null;
-      loopBtn.style.background = "#1a7f5a";
+      loopBtn.style.background = color.green;
       loopBtn.textContent = "START LOOP";
     };
 
@@ -359,10 +368,10 @@
     Object.assign(delayInput.style, {
       flex: "1",
       padding: "6px",
-      border: "1px solid #ccc",
+      border: `1px solid ${color.input.border}`,
       borderRadius: "4px",
       fontSize: "12px",
-      background: "#f5f5f5",
+      background: color.input.fill,
       textAlign: "center",
       color: "black",
       minWidth: "0",
@@ -383,10 +392,10 @@
     Object.assign(volumeInput.style, {
       flex: "1",
       padding: "6px",
-      border: "1px solid #ccc",
+      border: `1px solid ${color.input.border}`,
       borderRadius: "4px",
       fontSize: "12px",
-      background: "#f5f5f5",
+      background: color.input.fill,
       textAlign: "center",
       color: "black",
       minWidth: "0",
@@ -424,7 +433,7 @@
       right: "20px",
       zIndex: "9999",
       background: "rgba(255,255,255,0.3)",
-      color: "#fff",
+      color: color.white,
       padding: "10px",
       borderRadius: "8px",
       fontFamily: "sans-serif",
@@ -451,7 +460,7 @@
         border: "none",
         borderRadius: "4px",
         background: bg,
-        color: "#fff",
+        color: color.white,
         cursor: "pointer",
         textAlign: "center",
         fontSize: "14px",
@@ -460,10 +469,10 @@
     // Kill Tabs (rightmost inward)
     const killTabsBtn = document.createElement("button");
     killTabsBtn.textContent = "Kill Tabs";
-    styleBtn(killTabsBtn, "#0070d2");
+    styleBtn(killTabsBtn, color.blue);
     killTabsBtn.onclick = async () => {
-      const items = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
-      for (let i = items.length - 1; i >= 0; i--) {
+      const tabs = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
+      for (tab of tabs) {
         const btn = items[i]?.querySelector(".slds-button_icon-x-small");
         if (btn) {
           btn.click();
@@ -475,10 +484,10 @@
     // Tab loop (trim to 10)
     let tabLoop = null;
     const tabLoopBtn = document.createElement("button");
-    styleBtn(tabLoopBtn, "#1a7f5a");
+    styleBtn(tabLoopBtn, color.green);
     const syncTab = () => {
       tabLoopBtn.textContent = tabLoop ? "Stop Tab Loop" : "Start Tab Loop";
-      tabLoopBtn.style.background = tabLoop ? "#c0392b" : "#1a7f5a";
+      tabLoopBtn.style.background = tabLoop ? color.red : color.green;
     };
     const startTabLoop = () => {
       if (tabLoop) return;
@@ -503,7 +512,7 @@
     // Kill Toasts (burst 5s)
     const killToastsBtn = document.createElement("button");
     killToastsBtn.textContent = "Kill Toasts (5s)";
-    styleBtn(killToastsBtn, "#555");
+    styleBtn(killToastsBtn, color.gray);
     killToastsBtn.onclick = () => {
       if (killToastsBtn.disabled) return;
       killToastsBtn.disabled = true;
@@ -521,12 +530,12 @@
     // Toast loop
     let toastLoop = null;
     const toastLoopBtn = document.createElement("button");
-    styleBtn(toastLoopBtn, "#1a7f5a");
+    styleBtn(toastLoopBtn, color.green);
     const syncToast = () => {
       toastLoopBtn.textContent = toastLoop
         ? "Stop Toast Loop"
         : "Start Toast Loop";
-      toastLoopBtn.style.background = toastLoop ? "#c0392b" : "#1a7f5a";
+      toastLoopBtn.style.background = toastLoop ? color.red : color.green;
     };
     const startToastLoop = () => {
       if (toastLoop) return;
