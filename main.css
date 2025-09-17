@@ -1,0 +1,122 @@
+/* Theme tokens */
+:root {
+  --fm-blue: #0070d2;
+  --fm-green: #1a7f5a;
+  --fm-red: #c0392b;
+  --fm-white: #fff;
+  --fm-gray: #555;
+
+  --fm-input-border: #ccc;
+  --fm-input-fill: #f5f5f5;
+
+  --fm-radius: 8px;
+  --fm-z: 9999999;
+}
+
+/* Base panel */
+.fm-panel {
+  position: fixed;
+  z-index: var(--fm-z);
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--fm-white);
+  padding: 10px;
+  border-radius: var(--fm-radius);
+  font-family: sans-serif;
+  font-size: 14px;
+  width: 160px;
+  user-select: none;
+}
+
+/* Soft fade when not hovered */
+.fm-fade-on-leave {
+  opacity: 0.05;
+  transition: opacity 120ms ease;
+}
+.fm-fade-on-leave:hover {
+  opacity: 1;
+}
+
+/* Top bar */
+.fm-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.fm-icon-group {
+  display: flex;
+  gap: 4px;
+}
+
+/* Icons inherit currentColor */
+.fm-icon {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--fm-gray);
+}
+.fm-btn-icon {
+  border: none;
+  background: none;
+  padding: 0;
+  width: 20px;
+  cursor: pointer;
+  color: var(--fm-gray);
+}
+
+/* Buttons */
+.fm-btn {
+  margin: 4px 0;
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  color: var(--fm-white);
+}
+.fm-btn[data-variant="primary"] {
+  background: var(--fm-blue);
+}
+.fm-btn[data-variant="success"] {
+  background: var(--fm-green);
+}
+.fm-btn[data-variant="danger"] {
+  background: var(--fm-red);
+}
+.fm-btn[data-variant="muted"] {
+  background: var(--fm-gray);
+}
+
+/* Inputs */
+.fm-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  width: 100%;
+}
+.fm-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--fm-input-border);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--fm-input-fill);
+  color: #000;
+  text-align: center;
+}
+
+/* Panel defaults for each widget */
+#asm-controls {
+  /* position is still set dynamically by JS for drag/snap */
+}
+#kill-controls {
+  /* likewise */
+}
+
+/* Optional: when your loop is active, toggle a class in JS to switch color */
+.fm-loop-on .fm-btn[data-variant="success"] {
+  background: var(--fm-red);
+}

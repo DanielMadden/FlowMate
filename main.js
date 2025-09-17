@@ -55,7 +55,7 @@
     Array.from(root.querySelectorAll(sel));
   const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-  // ===== Panel chrome factory (drag + snap + delete identical everywhere) =====
+  // SECTION Chrome Panel
   function makePanelChrome({ panel, snapTo, onRemove }) {
     const topBar = document.createElement("div");
     Object.assign(topBar.style, {
@@ -119,11 +119,12 @@
       }
     };
 
+    // Append controls to panel
     const iconGroup = document.createElement("div");
     iconGroup.append(snapBtn, trashBtn);
     topBar.append(dragHandle, iconGroup);
 
-    // Smooth drag via Pointer Events (no global mousemove leaks)
+    // Dragging functionality
     let dragStartX = 0,
       dragStartY = 0,
       startLeft = 0,
@@ -156,12 +157,13 @@
       dragHandle.addEventListener("pointerup", onUp);
     });
 
+    // Return
     return topBar;
-  }
+  } // !SECTION
 
-  // ===== ASM WIDGET (only in Five9 surface) =====
+  // SECTION ASM Widget
   function buildASMWidget() {
-    if (!isFive9) return; // surface gate
+    if (!isFive9) return;
     if (document.getElementById("asm-controls")) return;
 
     const panel = document.createElement("div");
@@ -492,9 +494,8 @@
     const startTabLoop = () => {
       if (tabLoop) return;
       tabLoop = setInterval(() => {
-        const items = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
-        const over = items.length - 10;
-        if (over > 0) {
+        const items = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");\
+        if (items.length > 10) {
           const btn = items[0]?.querySelector(".slds-button_icon-x-small");
           if (btn) btn.click();
         }
