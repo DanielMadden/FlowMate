@@ -2,16 +2,10 @@
   "manifest_version": 3,
   "name": "FlowMate",
   "version": "0.0.0.1",
-  "description": "Salesforce & Five9 Productivity Tools",
+  "description": "SF & F9 Productivity Widgets for DB",
   "action": { "default_title": "FlowMate", "default_popup": "popup.html" },
 
   "permissions": [],
-
-  "host_permissions": [
-    "https://*.lightning.force.com/*",
-    "https://*.my.salesforce.com/*",
-    "https://app.five9.com/*"
-  ],
 
   "content_scripts": [
     {
