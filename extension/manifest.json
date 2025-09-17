@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FlowMate",
-  "version": "0.0.0.1",
-  "description": "SF & F9 Productivity Widgets for DB",
+  "version": "0.0.0.2",
+  "description": "FlowMate (Beta) – Internal DB productivity tool",
   "action": { "default_title": "FlowMate", "default_popup": "popup.html" },
 
   "permissions": [],
