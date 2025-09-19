@@ -1,7 +1,6 @@
 // =========================
 // FlowMate Widgets (surface-gated, no MO)
 // =========================
-
 (function () {
   // ---- Surface detection + frame gating ----
   const url = new URL(location.href);
@@ -20,6 +19,18 @@
   if (window.__flowmateBootstrapped) return;
   window.__flowmateBootstrapped = true;
 
+  const color = {
+    blue: "#0070d2",
+    green: "#1a7f5a",
+    red: "#c0392b",
+    white: "#fff",
+    gray: "#555",
+    input: {
+      border: "#ccc",
+      fill: "#f5f5f5",
+    },
+  };
+
   // ====== ICON SVGs (PASTE YOURS HERE) ======
   const DRAG_SVG = `
     <svg width="18" height="18" viewBox="0 0 100 100" fill="${color.gray}" aria-label="Drag">
@@ -37,94 +48,75 @@
       <path d="M3 6h18v2H5v13h14V8h2v15H3V6zm6-2h6v2H9V4zM8 11h2v8H8zm6 0h2v8h-2z"/>
     </svg>`;
 
-  const color = {
-    blue: "#0070d2",
-    green: "#1a7f5a",
-    red: "#c0392b",
-    white: "#fff",
-    gray: "#555",
-    input: {
-      border: "#ccc",
-      fill: "#f5f5f5",
-    },
-  };
-
   // ===== Shared helpers =====
   const qs = (sel, root = document) => root.querySelector(sel);
   const qsAll = (sel, root = document) =>
     Array.from(root.querySelectorAll(sel));
   const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-  // SECTION Chrome Panel
-  function makePanelChrome({ panel, snapTo, onRemove }) {
-    const topBar = document.createElement("div");
-    Object.assign(topBar.style, {
+  function createPanel({ panel, snapTo, onRemove }) {
+    const ctrlBar = document.createElement("div");
+    Object.assign(ctrlBar.style, {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
       marginBottom: "8px",
     });
 
-    // Drag handle
-    const dragHandle = document.createElement("div");
-    dragHandle.innerHTML = DRAG_SVG;
-    Object.assign(dragHandle.style, {
-      cursor: "grab",
-      paddingTop: "4px",
-      marginRight: "auto",
-      display: "flex",
-      alignItems: "center",
-    });
+    function createCtrlButton(
+      ctrlButtonSubClass,
+      ctrlButtonTitle,
+      ctrlButtonSVG,
+      ctrlButtonFunction,
+      ctrlButtonStyling = {}
+    ) {
+      const ctrlButton = document.createElement("div");
+      ctrlButton.classList.add(
+        "fm-btn-ctrl",
+        `fm-btn-ctrl-${ctrlButtonSubClass}`
+      );
+      ctrlButton.title = ctrlButtonTitle;
+      ctrlButton.innerHTML = ctrlButtonSVG;
+      ctrlButton.onclick = ctrlButtonFunction;
+      Object.assign(ctrlButton.style, { ...ctrlButtonStyling });
+    }
 
-    // Snap
-    const snapBtn = document.createElement("button");
-    snapBtn.innerHTML = SNAP_SVG;
-    Object.assign(snapBtn.style, {
-      border: "none",
-      background: "none",
-      color: color.gray,
-      cursor: "pointer",
-      width: "20px",
-      padding: "0px",
-    });
-    snapBtn.title = "Snap to preset";
-    snapBtn.onclick = () => {
-      Object.assign(panel.style, {
-        top: "auto",
-        right: "auto",
-        bottom: "auto",
-        left: "auto",
-        ...snapTo,
-      });
+    const ctrlButtons = {
+      drag: createCtrlButton(
+        "drag",
+        "Hold and drag to move.",
+        DRAG_SVG,
+        () => {}
+      ),
+      snap: createCtrlButton(
+        "snap",
+        "Click to reset position.",
+        SNAP_SVG,
+        () => {
+          Object.assign(panel.style, {
+            top: "auto",
+            right: "auto",
+            bottom: "auto",
+            left: "auto",
+            ...snapTo,
+          });
+        }
+      ),
+      trash: createCtrlButton("trash", "Click to delete", TRASH_SVG, () => {
+        try {
+          onRemove?.();
+        } finally {
+          panel.remove();
+        }
+      }),
     };
 
-    // Delete
-    const trashBtn = document.createElement("button");
-    trashBtn.innerHTML = TRASH_SVG;
-    Object.assign(trashBtn.style, {
-      border: "none",
-      background: "none",
-      color: color.gray,
-      cursor: "pointer",
-      width: "20px",
-      padding: "0px",
-      marginLeft: "4px",
-    });
-    trashBtn.title = "Remove panel";
-    trashBtn.onclick = () => {
-      try {
-        onRemove?.();
-      } finally {
-        panel.remove();
-      }
-    };
-
-    // Append controls to panel
-    const iconGroup = document.createElement("div");
-    iconGroup.append(snapBtn, trashBtn);
-    topBar.append(dragHandle, iconGroup);
+    const ctrlButtonsRight = document.createElement("div");
+    ctrlButtonsRight.append(ctrlButtons.snap, ctrlButtons.drag);
+    ctrlBar.append(ctrlButtons.trash, ctrlButtonsRight);
 
     // Dragging functionality
+    const dragHandle = ctrlButtons.drag;
     let dragStartX = 0,
       dragStartY = 0,
       startLeft = 0,
@@ -158,10 +150,9 @@
     });
 
     // Return
-    return topBar;
-  } // !SECTION
+    return ctrlBar;
+  }
 
-  // SECTION ASM Widget
   function buildASMWidget() {
     if (!isFive9) return;
     if (document.getElementById("asm-controls")) return;
@@ -184,10 +175,10 @@
       opacity: "0.05",
     });
 
-    const topBar = makePanelChrome({
+    const ctrlBar = createPanel({
       panel,
       snapTo: { bottom: "200px", left: "300px" },
-      onRemove: () => stopLoop(),
+      onRemove: () => stopASMLoop(),
     });
 
     // Main ASM action
@@ -264,8 +255,8 @@
     }
 
     // Loop
-    let loopActive = false;
-    let loopInterval = null;
+    let ASMLoopActive = false;
+    let ASMLoopInterval = null;
     let countdown = null;
     let readyForNextCountdown = true;
     let asmDelaySeconds = 3;
@@ -286,15 +277,15 @@
       fontSize: "14px",
     });
 
-    loopBtn.onclick = () => (loopActive ? stopLoop() : startLoop());
+    loopBtn.onclick = () => (ASMLoopActive ? stopASMLoop() : startASMLoop());
 
-    const startLoop = () => {
-      if (loopActive) return;
-      loopActive = true;
+    const startASMLoop = () => {
+      if (ASMLoopActive) return;
+      ASMLoopActive = true;
       countdown = null;
       loopBtn.style.background = color.red;
       loopBtn.textContent = "STOP LOOP";
-      loopInterval = setInterval(async () => {
+      ASMLoopInterval = setInterval(async () => {
         const stateText = qs(
           "#sfli-call-header .f9-nowrap-ellipsis span:nth-child(2)"
         )?.textContent?.trim();
@@ -341,11 +332,11 @@
       }, 10);
     };
 
-    const stopLoop = () => {
-      loopActive = false;
-      clearInterval(loopInterval);
+    const stopASMLoop = () => {
+      ASMLoopActive = false;
+      clearInterval(ASMLoopInterval);
       clearInterval(countdown);
-      loopInterval = null;
+      ASMLoopInterval = null;
       countdown = null;
       loopBtn.style.background = color.green;
       loopBtn.textContent = "START LOOP";
@@ -409,10 +400,10 @@
     inputRow.append(delayInput, volumeInput);
 
     // Assemble
-    panel.append(topBar, nextCallBtn, loopBtn, inputRow);
+    panel.append(ctrlBar, nextCallBtn, loopBtn, inputRow);
     panel.addEventListener("mouseenter", () => {
       panel.style.opacity = "1";
-      stopLoop();
+      stopASMLoop();
     });
     panel.addEventListener("mouseleave", () => {
       panel.style.opacity = "0.05";
@@ -445,7 +436,7 @@
       opacity: "0.05",
     });
 
-    const topBar = makePanelChrome({
+    const ctrlBar = createPanel({
       panel,
       snapTo: { bottom: "20px", right: "20px" },
       onRemove: () => {
@@ -494,7 +485,7 @@
     const startTabLoop = () => {
       if (tabLoop) return;
       tabLoop = setInterval(() => {
-        const items = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");\
+        const items = qsAll("ul.tabBarItems li.oneConsoleTabItem div.close");
         if (items.length > 10) {
           const btn = items[0]?.querySelector(".slds-button_icon-x-small");
           if (btn) btn.click();
@@ -554,13 +545,13 @@
       toastLoop ? stopToastLoop() : startToastLoop();
     syncToast();
 
-    panel.append(topBar, killTabsBtn, tabLoopBtn, killToastsBtn, toastLoopBtn);
+    panel.append(ctrlBar, killTabsBtn, tabLoopBtn, killToastsBtn, toastLoopBtn);
     panel.addEventListener("mouseenter", () => (panel.style.opacity = "1"));
     panel.addEventListener("mouseleave", () => (panel.style.opacity = "0.05"));
 
     document.body.appendChild(panel);
     return {
-      topBar,
+      ctrlBar,
       killTabsBtn,
       tabLoopBtn,
       killToastsBtn,
