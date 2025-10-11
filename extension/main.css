@@ -25,15 +25,12 @@
   font-size: 14px;
   width: 160px;
   user-select: none;
-}
-
-/* Soft fade when not hovered */
-.fm-fade-on-leave {
   opacity: 0.05;
   transition: opacity 120ms ease;
 }
-.fm-fade-on-leave:hover {
-  opacity: 1;
+
+.fm-panel:hover {
+  opacity: 0.75;
 }
 
 /* Top bar */
@@ -48,6 +45,13 @@
   gap: 4px;
 }
 
+.fm-bar-ctrl {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 /* Icons inherit currentColor */
 .fm-icon {
   display: flex;
@@ -55,13 +59,20 @@
   cursor: pointer;
   color: var(--fm-gray);
 }
-.fm-btn-icon {
+.fm-btn-ctrl {
   border: none;
   background: none;
   padding: 0;
-  width: 20px;
   cursor: pointer;
+  width: 20px;
+  align-items: center;
   color: var(--fm-gray);
+}
+.fm-btn-ctrl.fm-btn-ctrl-drag {
+  cursor: grab;
+}
+.fm-btn-ctrl.fm-btn-ctrl-drag {
+  margin-left: 4px;
 }
 
 /* Buttons */
